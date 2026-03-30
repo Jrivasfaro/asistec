@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#00e5ff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ASISTEC">
+<title>ASISTEC</title>
+<link rel="manifest" href="./manifest.json">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg:#0a0a0f; --surface:#12121a; --card:#1a1a26; --border:#2a2a3e;
+  --accent:#00e5ff; --accent2:#ff6b35; --green:#00ff88; --red:#ff3b5c;
+  --yellow:#ffd60a; --text:#e8e8f0; --muted:#6b6b88;
+  --fh:'Syne',sans-serif; --fm:'Space Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow-x:hidden;}
+body{background:var(--bg);color:var(--text);font-family:var(--fm);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ── Layout ── */
+.screen{display:none;flex-direction:column;min-height:100vh;position:relative;z-index:1;}
+.screen.active{display:flex;}
+
+/* ── Header ── */
+.app-header{padding:16px 18px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.logo{font-family:var(--fh);font-size:22px;font-weight:800;color:var(--accent);letter-spacing:-1px;}
+.logo span{color:var(--accent2);}
+.header-right{display:flex;align-items:center;gap:10px;}
+
+/* ── Offline badge ── */
+.offline-bar{background:rgba(255,214,10,.1);border-bottom:1px solid rgba(255,214,10,.3);padding:8px 18px;font-size:11px;color:var(--yellow);display:none;align-items:center;gap:8px;letter-spacing:1px;}
+.offline-bar.show{display:flex;}
+.offline-bar .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);animation:blink 1s infinite;}
+.pending-count{margin-left:auto;background:rgba(255,214,10,.2);border:1px solid rgba(255,214,10,.3);border-radius:20px;padding:2px 10px;font-size:10px;}
+
+/* ── Scroll content ── */
+.content{flex:1;overflow-y:auto;padding:16px 18px 80px;}
+
+/* ── Clock ── */
+.clock-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;text-align:center;margin-bottom:16px;position:relative;overflow:hidden;}
+.clock-card::before{content:'';position:absolute;top:-1px;left:15%;right:15%;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent);}
+.time{font-family:var(--fh);font-size:46px;font-weight:800;color:var(--accent);letter-spacing:-2px;line-height:1;text-shadow:0 0 20px rgba(0,229,255,.25);}
+.date{font-size:11px;color:var(--muted);margin-top:5px;letter-spacing:1px;text-transform:uppercase;}
+
+/* ── Inputs ── */
+.field{margin-bottom:14px;}
+.field label{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:7px;}
+.field input,.field select{width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 14px;color:var(--text);font-family:var(--fm);font-size:14px;outline:none;transition:border-color .2s;appearance:none;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.field input::placeholder{color:var(--muted);}
+.field select option{background:#1a1a26;}
+
+/* ── Cámara ── */
+.cam-box{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+.cam-label{padding:10px 14px;font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.cam-placeholder{aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:12px;background:#0d0d14;}
+.cam-placeholder .icon{font-size:38px;opacity:.35;}
+#photoPreview{width:100%;aspect-ratio:4/3;object-fit:cover;display:none;}
+#photoCanvas{display:none;}
+#fileInput{display:none;}
+.cam-controls{padding:10px 14px;display:flex;gap:8px;}
+.btn-sm{flex:1;padding:10px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:var(--fm);font-size:12px;cursor:pointer;transition:all .2s;text-align:center;}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+.btn-sm.hi{background:rgba(0,229,255,.1);border-color:rgba(0,229,255,.35);color:var(--accent);}
+
+/* ── GPS ── */
+.gps-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;}
+.gps-icon{font-size:20px;flex-shrink:0;}
+.gps-text{flex:1;font-size:11px;color:var(--muted);}
+.gps-text strong{color:var(--text);display:block;font-size:11px;margin-bottom:2px;}
+.gps-status{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s;}
+.gps-status.ok{background:var(--green);box-shadow:0 0 8px rgba(0,255,136,.5);}
+.gps-status.fail{background:var(--red);}
+
+/* ── Botones acción ── */
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.btn-action{padding:18px 12px;border-radius:14px;border:none;cursor:pointer;font-family:var(--fh);font-size:15px;font-weight:700;transition:all .2s;position:relative;}
+.btn-action:active{transform:scale(.97);}
+.btn-action:disabled{opacity:.3;cursor:not-allowed;transform:none!important;}
+.btn-entrada{background:linear-gradient(135deg,rgba(0,255,136,.18),rgba(0,229,255,.08));border:1px solid rgba(0,255,136,.35);color:var(--green);}
+.btn-entrada:not(:disabled):hover{box-shadow:0 6px 20px rgba(0,255,136,.2);transform:translateY(-1px);}
+.btn-salida{background:linear-gradient(135deg,rgba(255,59,92,.18),rgba(255,107,53,.08));border:1px solid rgba(255,59,92,.35);color:var(--red);}
+.btn-salida:not(:disabled):hover{box-shadow:0 6px 20px rgba(255,59,92,.2);transform:translateY(-1px);}
+.btn-icon{font-size:24px;display:block;margin-bottom:4px;}
+
+/* ── Pendientes card ── */
+.pending-card{background:rgba(255,214,10,.06);border:1px solid rgba(255,214,10,.25);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:none;}
+.pending-card.show{display:block;}
+.pending-title{font-size:11px;color:var(--yellow);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.pending-item{font-size:12px;color:#b0b0c8;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;}
+.pending-item:last-child{border-bottom:none;}
+.btn-sync{width:100%;margin-top:10px;padding:10px;background:rgba(255,214,10,.1);border:1px solid rgba(255,214,10,.3);border-radius:8px;color:var(--yellow);font-family:var(--fm);font-size:12px;cursor:pointer;transition:all .2s;}
+.btn-sync:hover{background:rgba(255,214,10,.2);}
+.btn-sync:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── Config screen ── */
+.config-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
+.config-title{font-family:var(--fh);font-size:14px;font-weight:700;color:var(--accent2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,rgba(0,229,255,.15),rgba(0,229,255,.08));border:1px solid rgba(0,229,255,.4);border-radius:10px;color:var(--accent);font-family:var(--fm);font-size:13px;cursor:pointer;transition:all .2s;margin-top:6px;}
+.btn-primary:hover{background:rgba(0,229,255,.25);}
+.btn-danger{width:100%;padding:11px;background:rgba(255,59,92,.08);border:1px solid rgba(255,59,92,.3);border-radius:10px;color:var(--red);font-family:var(--fm);font-size:12px;cursor:pointer;margin-top:8px;}
+
+/* ── Bottom nav ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(10,10,15,.95);border-top:1px solid var(--border);display:flex;z-index:50;backdrop-filter:blur(12px);}
+.nav-item{flex:1;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;transition:color .2s;color:var(--muted);font-size:10px;letter-spacing:.5px;border:none;background:none;font-family:var(--fm);}
+.nav-item .nav-icon{font-size:20px;}
+.nav-item.active{color:var(--accent);}
+
+/* ── Spinner ── */
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%) translateY(60px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 20px;font-size:13px;z-index:200;transition:transform .3s cubic-bezier(.34,1.56,.64,1);text-align:center;max-width:88vw;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:rgba(0,255,136,.4);color:var(--green);}
+.toast.err{border-color:rgba(255,59,92,.4);color:var(--red);}
+.toast.warn{border-color:rgba(255,214,10,.4);color:var(--yellow);}
+
+/* ── Install banner ── */
+.install-banner{background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.2);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:none;align-items:center;gap:12px;}
+.install-banner.show{display:flex;}
+.install-banner .text{flex:1;font-size:12px;color:#7ae8f5;}
+.install-banner .text strong{display:block;color:var(--accent);margin-bottom:2px;}
+.btn-install{padding:9px 14px;background:var(--accent);border:none;border-radius:8px;color:#0a0a0f;font-family:var(--fm);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+</style>
+</head>
+<body>
+
+<!-- ══ PANTALLA PRINCIPAL ══════════════════════════════════ -->
+<div class="screen active" id="screenMain">
+
+  <div class="app-header">
+    <div class="logo">ASIS<span>TEC</span></div>
+    <div class="header-right">
+      <span id="onlineIcon" style="font-size:18px;" title="Conexión">🟢</span>
+    </div>
+  </div>
+
+  <div class="offline-bar" id="offlineBar">
+    <span class="dot"></span>
+    SIN CONEXIÓN — Guardando localmente
+    <span class="pending-count" id="offlineBadge">0 pendientes</span>
+  </div>
+
+  <div class="content">
+
+    <!-- Banner instalación PWA -->
+    <div class="install-banner" id="installBanner">
+      <div class="text">
+        <strong>📲 Instalar app</strong>
+        Agrégala a tu pantalla de inicio para usarla sin navegador
+      </div>
+      <button class="btn-install" onclick="installPWA()">Instalar</button>
+    </div>
+
+    <!-- Reloj -->
+    <div class="clock-card">
+      <div class="time" id="clockTime">00:00:00</div>
+      <div class="date" id="clockDate">—</div>
+    </div>
+
+    <!-- Nombre -->
+    <div class="field">
+      <label>Nombre del Empleado</label>
+      <input type="text" id="empName" placeholder="Nombre completo..." autocomplete="name" />
+    </div>
+
+    <!-- Cámara -->
+    <div class="cam-box">
+      <div class="cam-label"><span class="dot"></span>Validación por Foto</div>
+      <div class="cam-placeholder" id="camPlaceholder">
+        <span class="icon">📷</span>
+        <span>Toca el botón para tomar foto</span>
+      </div>
+      <img id="photoPreview" alt="foto" />
+      <canvas id="photoCanvas"></canvas>
+      <input type="file" id="fileInput" accept="image/*" capture="user" onchange="handlePhoto(event)" />
+      <div class="cam-controls">
+        <button class="btn-sm hi" id="btnTakePhoto" onclick="openCamera()">📷 Tomar Foto</button>
+        <button class="btn-sm" id="btnRetake" onclick="retakePhoto()" style="display:none">🔄 Repetir</button>
+      </div>
+    </div>
+
+    <!-- GPS -->
+    <div class="gps-card">
+      <span class="gps-icon">📍</span>
+      <div class="gps-text">
+        <strong>Geolocalización</strong>
+        <span id="gpsText">Se capturará al registrar</span>
+      </div>
+      <div class="gps-status" id="gpsStatus"></div>
+    </div>
+
+    <!-- Registros pendientes offline -->
+    <div class="pending-card" id="pendingCard">
+      <div class="pending-title">⏳ Registros pendientes de envío</div>
+      <div id="pendingList"></div>
+      <button class="btn-sync" id="btnSync" onclick="syncPending()">☁️ Sincronizar ahora</button>
+    </div>
+
+    <!-- Botones -->
+    <div class="action-row">
+      <button class="btn-action btn-entrada" id="btnEntrada" onclick="registrar('ENTRADA')">
+        <span class="btn-icon">🟢</span>ENTRADA
+      </button>
+      <button class="btn-action btn-salida" id="btnSalida" onclick="registrar('SALIDA')">
+        <span class="btn-icon">🔴</span>SALIDA
+      </button>
+    </div>
+
+  </div><!-- /content -->
+</div>
+
+<!-- ══ PANTALLA CONFIGURACIÓN ══════════════════════════════ -->
+<div class="screen" id="screenConfig">
+  <div class="app-header">
+    <div class="logo">ASIS<span>TEC</span></div>
+  </div>
+  <div class="content">
+
+    <div class="config-card">
+      <div class="config-title">🔗 Google Apps Script</div>
+      <div class="field">
+        <label>URL del Script</label>
+        <input type="url" id="cfgUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+      </div>
+      <button class="btn-primary" onclick="saveConfig()">💾 Guardar configuración</button>
+    </div>
+
+    <div class="config-card">
+      <div class="config-title">ℹ️ Versión</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.8;">
+        ASISTEC v2.0 — PWA<br>
+        Modo offline ✅<br>
+        Sincronización automática ✅<br>
+        Google Sheets + Drive ✅
+      </p>
+      <button class="btn-danger" onclick="clearData()">🗑 Borrar datos locales</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ NAVEGACIÓN ═══════════════════════════════════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-item active" id="navMain" onclick="goTo('Main')">
+    <span class="nav-icon">🏠</span>INICIO
+  </button>
+  <button class="nav-item" id="navConfig" onclick="goTo('Config')">
+    <span class="nav-icon">⚙️</span>CONFIG
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ CONFIG ══════════════════════════════════════════════════
+let SCRIPT_URL = localStorage.getItem('asistec_url') || '';
+let photoDataURL = null;
+let deferredPrompt = null;
+
+// ══ NAVEGACIÓN ══════════════════════════════════════════════
+function goTo(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('screen' + name).classList.add('active');
+  document.getElementById('nav' + name).classList.add('active');
+  if (name === 'Config') loadConfig();
+}
+
+// ══ RELOJ ════════════════════════════════════════════════════
+function tick() {
+  const n = new Date();
+  document.getElementById('clockTime').textContent = n.toLocaleTimeString('es-MX',{hour12:false});
+  document.getElementById('clockDate').textContent = n.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+setInterval(tick, 1000); tick();
+
+// ══ ONLINE / OFFLINE ═════════════════════════════════════════
+function updateOnlineStatus() {
+  const online = navigator.onLine;
+  document.getElementById('onlineIcon').textContent = online ? '🟢' : '🔴';
+  document.getElementById('offlineBar').classList.toggle('show', !online);
+  if (online) {
+    syncPending(); // auto-sync al recuperar conexión
+  }
+  renderPending();
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+// ══ CÁMARA ═══════════════════════════════════════════════════
+function openCamera() {
+  document.getElementById('fileInput').click();
+}
+
+function handlePhoto(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById('photoCanvas');
+      // Reducir tamaño para no exceder limits de Apps Script
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > MAX) { h = h * MAX / w; w = MAX; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // Sello de tiempo
+      const now = new Date();
+      ctx.fillStyle = 'rgba(0,0,0,.65)';
+      ctx.fillRect(0, h - 30, w, 30);
+      ctx.fillStyle = '#00e5ff';
+      ctx.font = `bold ${Math.max(11, w*0.018)}px monospace`;
+      ctx.fillText(now.toLocaleString('es-MX'), 6, h - 9);
+      photoDataURL = canvas.toDataURL('image/jpeg', 0.55);
+      document.getElementById('photoPreview').src = photoDataURL;
+      document.getElementById('photoPreview').style.display = 'block';
+      document.getElementById('camPlaceholder').style.display = 'none';
+      document.getElementById('btnTakePhoto').style.display = 'none';
+      document.getElementById('btnRetake').style.display = 'flex';
+      showToast('✅ Foto capturada', 'ok');
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function retakePhoto() {
+  photoDataURL = null;
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('camPlaceholder').style.display = 'flex';
+  document.getElementById('btnRetake').style.display = 'none';
+  document.getElementById('btnTakePhoto').style.display = 'flex';
+}
+
+// ══ GEOLOCALIZACIÓN ══════════════════════════════════════════
+function getGPS() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject('GPS no disponible'); return; }
+    navigator.geolocation.getCurrentPosition(
+      p => resolve(p.coords),
+      e => reject(e.message),
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  });
+}
+
+// ══ REGISTRAR ════════════════════════════════════════════════
+async function registrar(tipo) {
+  const nombre = document.getElementById('empName').value.trim();
+  if (!nombre)       { showToast('⚠️ Ingresa tu nombre', 'warn'); return; }
+  if (!photoDataURL) { showToast('⚠️ Toma una foto primero', 'warn'); return; }
+
+  const btn = document.getElementById(tipo === 'ENTRADA' ? 'btnEntrada' : 'btnSalida');
+  const otherBtn = document.getElementById(tipo === 'ENTRADA' ? 'btnSalida' : 'btnEntrada');
+  btn.disabled = true; otherBtn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span>GPS...`;
+
+  // GPS
+  let lat = '', lon = '', locationStr = 'No disponible';
+  try {
+    const c = await getGPS();
+    lat = c.latitude.toFixed(6);
+    lon = c.longitude.toFixed(6);
+    locationStr = `${lat}, ${lon}`;
+    document.getElementById('gpsText').textContent = locationStr;
+    document.getElementById('gpsStatus').className = 'gps-status ok';
+  } catch(e) {
+    document.getElementById('gpsText').textContent = 'No disponible';
+    document.getElementById('gpsStatus').className = 'gps-status fail';
+  }
+
+  const now = new Date();
+  const registro = {
+    id: Date.now(),
+    nombre, tipo,
+    fecha: now.toLocaleDateString('es-MX'),
+    hora: now.toLocaleTimeString('es-MX', {hour12:false}),
+    timestamp: now.toISOString(),
+    lat, lon, locationStr,
+    foto: photoDataURL
+  };
+
+  btn.innerHTML = `<span class="spinner"></span>Enviando...`;
+
+  if (navigator.onLine && SCRIPT_URL) {
+    const ok = await enviarRegistro(registro);
+    if (ok) {
+      showToast(tipo === 'ENTRADA' ? '✅ Entrada registrada' : '🔴 Salida registrada', 'ok');
+    } else {
+      guardarPendiente(registro);
+      showToast('📦 Sin respuesta — guardado localmente', 'warn');
+    }
+  } else {
+    guardarPendiente(registro);
+    showToast('📦 Sin conexión — guardado para después', 'warn');
+  }
+
+  // Limpiar
+  retakePhoto();
+  document.getElementById('empName').value = '';
+  btn.disabled = false; otherBtn.disabled = false;
+  btn.innerHTML = tipo === 'ENTRADA'
+    ? '<span class="btn-icon">🟢</span>ENTRADA'
+    : '<span class="btn-icon">🔴</span>SALIDA';
+  renderPending();
+}
+
+// ══ ENVÍO A GOOGLE SHEETS ════════════════════════════════════
+async function enviarRegistro(registro) {
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(registro)
+    });
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// ══ OFFLINE — PENDIENTES ══════════════════════════════════════
+function guardarPendiente(registro) {
+  const pendientes = getPendientes();
+  pendientes.push(registro);
+  localStorage.setItem('asistec_pending', JSON.stringify(pendientes));
+}
+
+function getPendientes() {
+  return JSON.parse(localStorage.getItem('asistec_pending') || '[]');
+}
+
+function renderPending() {
+  const pendientes = getPendientes();
+  const card = document.getElementById('pendingCard');
+  const list = document.getElementById('pendingList');
+  const badge = document.getElementById('offlineBadge');
+
+  badge.textContent = `${pendientes.length} pendiente${pendientes.length !== 1 ? 's' : ''}`;
+
+  if (pendientes.length === 0) {
+    card.classList.remove('show');
+    return;
+  }
+  card.classList.add('show');
+  list.innerHTML = pendientes.map(p => `
+    <div class="pending-item">
+      <span>${p.tipo === 'ENTRADA' ? '🟢' : '🔴'} ${p.nombre}</span>
+      <span style="color:var(--muted);font-size:11px;">${p.fecha} ${p.hora}</span>
+    </div>
+  `).join('');
+}
+
+async function syncPending() {
+  if (!SCRIPT_URL) { showToast('⚠️ Configura la URL primero', 'warn'); return; }
+  const pendientes = getPendientes();
+  if (pendientes.length === 0) return;
+
+  const btn = document.getElementById('btnSync');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; }
+
+  let enviados = 0;
+  const fallidos = [];
+
+  for (const r of pendientes) {
+    const ok = await enviarRegistro(r);
+    if (ok) enviados++;
+    else fallidos.push(r);
+  }
+
+  localStorage.setItem('asistec_pending', JSON.stringify(fallidos));
+  renderPending();
+
+  if (enviados > 0) showToast(`☁️ ${enviados} registro(s) sincronizado(s)`, 'ok');
+  if (fallidos.length > 0) showToast(`⚠️ ${fallidos.length} no pudieron enviarse`, 'warn');
+
+  if (btn) { btn.disabled = false; btn.textContent = '☁️ Sincronizar ahora'; }
+}
+
+// ══ CONFIG ═══════════════════════════════════════════════════
+function loadConfig() {
+  document.getElementById('cfgUrl').value = localStorage.getItem('asistec_url') || '';
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  if (url && !url.startsWith('https://script.google.com')) {
+    showToast('⚠️ URL inválida', 'warn'); return;
+  }
+  SCRIPT_URL = url;
+  localStorage.setItem('asistec_url', url);
+  showToast('✅ Configuración guardada', 'ok');
+  setTimeout(() => goTo('Main'), 800);
+}
+
+function clearData() {
+  if (!confirm('¿Borrar todos los datos locales? Los pendientes sin enviar se perderán.')) return;
+  localStorage.clear();
+  SCRIPT_URL = '';
+  showToast('🗑 Datos borrados', 'warn');
+  goTo('Main');
+}
+
+// ══ INSTALL PWA ═══════════════════════════════════════════════
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.remove('show');
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.remove('show');
+  showToast('✅ App instalada', 'ok');
+});
+
+// ══ SERVICE WORKER ════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    console.log('SW registrado:', reg.scope);
+  }).catch(err => console.log('SW error:', err));
+
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'SYNC_START') syncPending();
+  });
+}
+
+// ══ TOAST ══════════════════════════════════════════════════════
+let toastT;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ══ INIT ═══════════════════════════════════════════════════════
+renderPending();
+if (!SCRIPT_URL) goTo('Config');
+</script>
+</body>
+</html>
